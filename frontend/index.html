@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1200" />
+    <meta name="platform" content="web" />
+    <title>ContextedAI - 智能对话助手</title>
+    <link rel="stylesheet" href="/assets/style.css" />
+  </head>
+  <body>
+    <div class="toast-container" id="toastContainer"></div>
+    <div class="layout-grid">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-brand">
+            <span>ContextedAI</span>
+          </div>
+          <button class="btn-new-chat" id="btnNewChat">新建会话</button>
+        </div>
+        <div class="sidebar-search">
+          <div class="search-input-wrap">
+            <input type="text" placeholder="搜索会话…" id="sidebarSearch" />
+          </div>
+        </div>
+        <div class="sidebar-tabs">
+          <button class="sidebar-tab active" data-tab="chats">会话</button>
+          <button class="sidebar-tab" data-tab="bookmarks">书签</button>
+        </div>
+        <div class="conv-list" id="convList"></div>
+        <div class="bookmark-list" id="bookmarkList" style="display: none; flex: 1; overflow-y: auto"></div>
+      </aside>
+
+      <main class="main-area">
+        <div class="chat-header">
+          <div class="chat-header-left">
+            <input class="chat-title-edit" id="chatTitleInput" value="新对话" spellcheck="false" />
+          </div>
+          <div class="chat-header-actions">
+            <div class="picker-group">
+              <span class="picker-label">引擎：</span>
+              <div class="engine-picker" id="enginePicker">
+                <button id="enginePickerBtn" class="model-picker-btn" title="选择引擎"></button>
+                <div id="enginePickerMenu" class="model-picker-menu hidden"></div>
+              </div>
+            </div>
+            <div class="picker-group">
+              <span class="picker-label">模型：</span>
+              <div class="model-picker" id="modelPicker">
+                <button id="modelPickerBtn" class="model-picker-btn" title="选择模型"></button>
+                <div id="modelPickerMenu" class="model-picker-menu hidden"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="messages-area" id="messagesArea"></div>
+        <div class="input-area">
+          <div class="context-tags" id="contextTags"></div>
+          <div class="token-estimate" id="tokenEstimate"></div>
+          <div class="input-row">
+            <div class="input-tools">
+              <button class="tool-btn" id="btnContext" title="引用上下文">📎</button>
+              <button class="tool-btn" id="btnSkill" title="选择 Skill">🧩</button>
+            </div>
+            <div class="input-wrap">
+              <textarea id="messageInput" rows="1" placeholder="输入消息，按 @ 引用上下文…"></textarea>
+            </div>
+            <button class="btn-send" id="btnSend">发送</button>
+          </div>
+          <div class="active-skills" id="activeSkills"></div>
+        </div>
+      </main>
+    </div>
+
+    <div class="modal-overlay" id="ctxModal">
+      <div class="modal ctx-modal">
+        <div class="ctx-modal-header">
+          <h3>📎 引用历史上下文</h3>
+          <button class="modal-close" id="ctxModalClose">✕</button>
+        </div>
+        <div class="ctx-modal-body">
+          <div class="ctx-conv-list" id="ctxConvList"></div>
+          <div class="ctx-msg-list" id="ctxMsgList"></div>
+        </div>
+        <div class="ctx-modal-footer">
+          <span class="ctx-selected-count" id="ctxSelectedCount">已选择 <strong>0</strong> 条消息</span>
+          <div class="ctx-modal-footer-btns">
+            <button class="btn-ghost" id="ctxCancel">取消</button>
+            <button class="btn-primary" id="ctxConfirm">确认引用</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="skillModal">
+      <div class="modal skill-modal">
+        <div class="skill-modal-header">
+          <h3>🧩 选择 Skill</h3>
+          <button class="modal-close" id="skillModalClose">✕</button>
+        </div>
+        <div class="skill-grid" id="skillGrid"></div>
+        <div class="skill-modal-footer">
+          <button class="skill-reset" id="skillReset">全部关闭</button>
+          <button class="btn-primary" id="skillConfirm">确认</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="settingsModal">
+      <div class="modal settings-modal">
+        <div class="skill-modal-header">
+          <h3>⚙️ 模型与 Agent 设置</h3>
+          <button class="modal-close" id="settingsModalClose">✕</button>
+        </div>
+        <div class="settings-tabbar">
+          <button class="settings-tab active" id="settingsTabModel" data-pane="model">模型设置</button>
+          <button class="settings-tab" id="settingsTabSkill" data-pane="skill">Skill 设置</button>
+        </div>
+        <div class="settings-pane-wrap">
+          <div class="settings-pane" id="settingsPaneModel">
+            <div class="settings-split">
+              <div class="settings-left">
+                <div class="settings-panel-title">模型列表</div>
+                <div id="modelConfigList" class="mc-list"></div>
+              </div>
+              <div class="settings-right">
+                <div class="settings-panel-title">模型配置</div>
+                <div class="settings-form-grid two-col">
+                  <input id="mcId" placeholder="ID (如 gpt-4o-mini)" class="settings-input" />
+                  <input id="mcLabel" placeholder="显示名称" class="settings-input" />
+                  <input id="mcBaseUrl" placeholder="API Base URL" class="settings-input span-2" />
+                  <input id="mcApiKey" type="password" placeholder="API Key" class="settings-input span-2" />
+                  <label class="settings-check"><input id="mcEnabled" type="checkbox" checked /> 启用</label>
+                  <label class="settings-check"><input id="mcDefault" type="checkbox" /> 设为默认</label>
+                </div>
+                <div class="settings-actions">
+                  <button class="btn-primary" id="mcCreateBtn">新增</button>
+                  <button class="btn-ghost" id="mcUpdateBtn">更新</button>
+                  <button class="btn-ghost" id="mcClearBtn">清空表单</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="settings-pane hidden" id="settingsPaneSkill">
+            <div class="settings-split">
+              <div class="settings-left">
+                <div class="settings-panel-title">已安装技能</div>
+                <div id="localSkillList" class="ls-list"></div>
+              </div>
+              <div class="settings-right">
+                <div class="settings-panel-title">Skill 运行配置</div>
+                <div class="settings-form-grid one-col">
+                  <div>
+                    <div class="settings-field-title">本地 Skills 目录（可选）</div>
+                    <input id="settingSkillsDir" class="settings-input" />
+                  </div>
+                  <div>
+                    <div class="settings-field-title">Agent 引擎</div>
+                    <input id="settingAgentEngine" class="settings-input" />
+                  </div>
+                  <div>
+                    <div class="settings-field-title">OpenClaw API Base URL（可选）</div>
+                    <input id="settingOpenclawBaseUrl" class="settings-input" />
+                  </div>
+                  <div>
+                    <div class="settings-field-title">OpenClaw API Key（可选）</div>
+                    <input id="settingOpenclawApiKey" type="password" class="settings-input" />
+                  </div>
+                  <div>
+                    <div class="settings-field-title">单个 Skill 的 Token / 环境变量（.env.local）</div>
+                    <div class="settings-help" id="skillEnvHint">请先从左侧选择一个技能</div>
+                    <textarea
+                      id="skillEnvEditor"
+                      class="settings-input settings-textarea"
+                      placeholder="例如：&#10;TENCENT_DOCS_TOKEN=your_token_here"
+                    ></textarea>
+                    <div class="settings-actions compact">
+                      <button class="btn-ghost" id="skillEnvReloadBtn">读取该技能配置</button>
+                      <button class="btn-primary" id="skillEnvSaveBtn">保存到该技能 .env.local</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="skill-modal-footer">
+          <button class="btn-ghost" id="settingsCancel">取消</button>
+          <button class="btn-primary" id="settingsSave">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="context-menu" id="contextMenu">
+      <button class="ctx-menu-item" data-action="copy">📋 复制</button>
+      <button class="ctx-menu-item" data-action="quote">📎 引用</button>
+      <div class="ctx-menu-sep"></div>
+      <button class="ctx-menu-item" data-action="rename">✏️ 重命名</button>
+      <button class="ctx-menu-item" data-action="pin">📌 置顶</button>
+      <div class="ctx-menu-sep"></div>
+      <button class="ctx-menu-item danger" data-action="delete">🗑️ 删除</button>
+    </div>
+
+    <div class="context-menu" id="messageContextMenu">
+      <button class="ctx-menu-item" data-action="copy">📋 复制</button>
+      <button class="ctx-menu-item" data-action="quote">📎 引用</button>
+    </div>
+
+    <div class="modal-overlay" id="confirmModal">
+      <div class="modal confirm-modal">
+        <div class="confirm-body">
+          <div class="confirm-title" id="confirmTitle">确认操作</div>
+          <div class="confirm-message" id="confirmMessage">确定继续吗？</div>
+        </div>
+        <div class="skill-modal-footer">
+          <button class="btn-ghost" id="confirmCancel">取消</button>
+          <button class="btn-primary danger" id="confirmOk">确认</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/assets/app.js"></script>
+  </body>
+</html>
