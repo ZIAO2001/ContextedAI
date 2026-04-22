@@ -11,3 +11,4 @@ claw_ai.db
 dist/
 build/
 *.egg-info/
+tmp_skill/
